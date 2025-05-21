@@ -1,9 +1,12 @@
 package com.example.alarm2
 
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -12,35 +15,66 @@ import android.widget.Button
 import android.widget.TimePicker
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.alarm2.model.AlarmData
 import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var timePicker: TimePicker
     private lateinit var setAlarmBtn: Button
+    private lateinit var alarmAdapter: AlarmAdapter
+
+    private val alarmList = mutableListOf<AlarmData>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        initViews()
+        initRecyclerView()
+
+        // 알람 울림 수신 등록
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                alarmFiredReceiver,
+                IntentFilter("com.example.alarm2.ALARM_FIRED"),
+                Context.RECEIVER_EXPORTED
+            )
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag") // 여기는 suppress 해도 괜찮음
+            registerReceiver(
+                alarmFiredReceiver,
+                IntentFilter("com.example.alarm2.ALARM_FIRED")
+            )
+        }
+
+    }
+
+    private fun initViews() {
         timePicker = findViewById(R.id.timePicker)
         setAlarmBtn = findViewById(R.id.setAlarmBtn)
 
-        setAlarmBtn.setOnClickListener{
-            // 권한 설정.
-            if (checkAlarmPermission()) return@setOnClickListener
-            // 알람 실행.
-            val calendarForAlarm = Calendar.getInstance() // 알람 설정 시점의 시간
-            setAlarm()
+        setAlarmBtn.setOnClickListener {
+            if (!hasAlarmPermission()) {
+                setAlarm()
+            }
         }
     }
 
-    private fun checkAlarmPermission(): Boolean {
+    private fun initRecyclerView() {
+        val recyclerView = findViewById<RecyclerView>(R.id.alarmRecyclerView)
+        alarmAdapter = AlarmAdapter(alarmList) { alarm -> cancelAlarm(alarm) }
+
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = alarmAdapter
+    }
+
+    private fun hasAlarmPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
-
             if (!alarmManager.canScheduleExactAlarms()) {
-                // 권한이 없으면 설정 페이지로 이동
                 val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
                     data = Uri.parse("package:$packageName")
                 }
@@ -52,16 +86,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setAlarm() {
-        val calendar = Calendar.getInstance()
+        val hour = timePicker.hour
+        val minute = timePicker.minute
+        val requestCode = alarmList.size + 1
 
-        // 타임피커에서 선택한 시간과 분을 캘린더에 설정
-        calendar.set(Calendar.HOUR_OF_DAY, timePicker.hour)
-        calendar.set(Calendar.MINUTE, timePicker.minute)
-        calendar.set(Calendar.SECOND, 0) // 초는 0초로 맞춤
+        val newAlarm = AlarmData(hour, minute, requestCode)
+        alarmList.add(newAlarm)
+        alarmAdapter.notifyItemInserted(alarmList.size - 1)
+
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+        }
 
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(this, 0 , intent, PendingIntent.FLAG_IMMUTABLE )
+        val intent = Intent(this, AlarmReceiver::class.java).apply {
+            putExtra("requestCode",requestCode)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, requestCode, intent, PendingIntent.FLAG_IMMUTABLE
+        )
 
         alarmManager.setExact(
             AlarmManager.RTC_WAKEUP,
@@ -69,11 +114,42 @@ class MainActivity : AppCompatActivity() {
             pendingIntent
         )
 
-        // 알람 설정 확인 메세지.
-        Toast.makeText(
-            this,
-            "알람이 ${timePicker.hour}시 ${timePicker.minute}분에 설정되었습니다.",
-            Toast.LENGTH_SHORT
-        ).show()
+        Toast.makeText(this, "알람이 ${hour}시 ${minute}분에 설정되었습니다.", Toast.LENGTH_SHORT).show()
     }
+
+    private fun cancelAlarm(alarmData: AlarmData) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, AlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, alarmData.requestCode, intent, PendingIntent.FLAG_IMMUTABLE
+        )
+
+        alarmManager.cancel(pendingIntent)
+
+        val index = alarmList.indexOf(alarmData)
+        if (index != -1) {
+            alarmList.removeAt(index)
+            alarmAdapter.notifyItemRemoved(index)
+        }
+
+        Toast.makeText(this, "알람 취소: ${alarmData.hour}시 ${alarmData.minute}분", Toast.LENGTH_SHORT).show()
+    }
+    private val alarmFiredReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val requestCode = intent?.getIntExtra("requestCode", -1) ?: return
+
+            val index = alarmList.indexOfFirst { it.requestCode == requestCode }
+            if (index != -1) {
+                alarmList.removeAt(index)
+                alarmAdapter.notifyItemRemoved(index)
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(alarmFiredReceiver)
+    }
+
+
 }

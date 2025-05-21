@@ -5,10 +5,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
+    android:gravity="center_horizontal"
     android:padding="24dp"
     tools:context=".MainActivity">
 
+    <!-- 시간 선택기 -->
     <TimePicker
         android:id="@+id/timePicker"
         android:layout_width="wrap_content"
@@ -16,19 +17,22 @@
         android:timePickerMode="spinner"
         android:layout_marginBottom="24dp" />
 
-    <LinearLayout
+    <!-- 버튼 -->
+    <Button
+        android:id="@+id/setAlarmBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center">
+        android:text="알람 설정"
+        android:layout_marginBottom="24dp" />
 
-        <Button
-            android:id="@+id/setAlarmBtn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="알람 설정"
-            android:layout_marginEnd="16dp" />
-
-    </LinearLayout>
+    <!-- 알람 리스트 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/alarmRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp" />
 
 </LinearLayout>
