@@ -13,6 +13,7 @@ class AlarmReceiver: BroadcastReceiver() {
         // 알람 화면 띄우기
         val activityIntent = Intent(context, AlarmActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra("MISSION_TYPE", "math")
         }
         context.startActivity(activityIntent)
 
