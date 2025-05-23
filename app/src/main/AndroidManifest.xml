@@ -33,7 +33,7 @@
             android:name=".CameraMissionActivity" />
         <activity
             android:name=".AlarmActivity"
-            android:exported="false" />
+            android:exported="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

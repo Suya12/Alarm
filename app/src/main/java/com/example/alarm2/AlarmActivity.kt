@@ -3,6 +3,7 @@ package com.example.alarm2
 import android.content.Intent
 import android.media.Ringtone
 import android.os.Bundle
+import android.util.Log
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -10,6 +11,7 @@ import androidx.core.content.ContextCompat
 import com.example.alarm2.databinding.ActivityAlarmBinding
 import com.example.alarm2.databinding.MissionButtonBinding
 import com.example.alarm2.databinding.MissionMathBinding
+import com.example.alarm2.model.AlarmData
 
 class AlarmActivity : AppCompatActivity() {
 
@@ -22,12 +24,18 @@ class AlarmActivity : AppCompatActivity() {
         binding = ActivityAlarmBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Ringtone 재생 (AlarmService.kt foreground에서 실행됨)
-        val serviceIntent = Intent(this, AlarmService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
-
         // 컨테이너 연결
         container = binding.missionContainer
+
+        // 알람 데이터 가져오기
+        val alarmData = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            intent.getSerializableExtra("alarmData", AlarmData::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getSerializableExtra("alarmData") as? AlarmData
+        }
+
+        Log.d("AlarmActivity", "missionType: ${alarmData?.missionType}")
 
         // 미션 함수 호출
         val missionType = intent.getStringExtra("MISSION_TYPE")
