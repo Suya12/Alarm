@@ -16,17 +16,9 @@ class AlarmService : Service() {
     private var ringtone: Ringtone? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Ringtone 재생
-        val alarmUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        ringtone = RingtoneManager.getRingtone(this, alarmUri)
-        ringtone?.play()
 
         // 포그라운드 서비스 알림 (필수, Android 8 이상)
         val channelId = "alarm_channel"
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("알람 실행 중")
-            .setContentText("알람이 울리고 있습니다.")
-            .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -36,7 +28,18 @@ class AlarmService : Service() {
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
 
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("알람 실행 중")
+            .setContentText("알람이 울리고 있습니다.")
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // 임시 아이콘, 아이콘 반드시 필요.
+            .build()
+
         startForeground(1, notification)
+
+        // Ringtone 재생
+        val alarmUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        ringtone = RingtoneManager.getRingtone(this, alarmUri)
+        ringtone?.play()
 
         return START_REDELIVER_INTENT
     }
