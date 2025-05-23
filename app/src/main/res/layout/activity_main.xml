@@ -17,6 +17,13 @@
         android:timePickerMode="spinner"
         android:layout_marginBottom="24dp" />
 
+    <!-- 미션 선택 스피너 추가 -->
+    <Spinner
+        android:id="@+id/missionSpinner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp" />
+
     <!-- 버튼 -->
     <Button
         android:id="@+id/setAlarmBtn"
