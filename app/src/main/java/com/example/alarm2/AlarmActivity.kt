@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import com.example.alarm2.databinding.ActivityAlarmBinding
 import com.example.alarm2.databinding.MissionButtonBinding
 import com.example.alarm2.databinding.MissionMathBinding
+import com.example.alarm2.model.AlarmData
 
 class AlarmActivity : AppCompatActivity() {
 
@@ -22,15 +23,14 @@ class AlarmActivity : AppCompatActivity() {
         binding = ActivityAlarmBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Ringtone 재생 (AlarmService.kt foreground에서 실행됨)
-        val serviceIntent = Intent(this, AlarmService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
-
         // 컨테이너 연결
         container = binding.missionContainer
 
+        // 리시버에서 알람 데이터 받아오기
+        val alarmData = intent.getSerializableExtra("alarmData") as? AlarmData
+        val missionType = alarmData?.missionType
+
         // 미션 함수 호출
-        val missionType = intent.getStringExtra("MISSION_TYPE")
         when(missionType) {
             "math" -> showMathMission()
             "camera" -> {
@@ -40,6 +40,9 @@ class AlarmActivity : AppCompatActivity() {
             else -> showButtonMission()
         }
 
+        // Ringtone 재생 (AlarmService.kt foreground에서 실행됨)
+        val serviceIntent = Intent(this, AlarmService::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
     }
 
     private fun showButtonMission() {

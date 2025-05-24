@@ -11,7 +11,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.Spinner
 import android.widget.TimePicker
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -25,7 +28,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var timePicker: TimePicker
     private lateinit var setAlarmBtn: Button
     private lateinit var alarmAdapter: AlarmAdapter
+    private lateinit var missionSpinner: Spinner
 
+    private var uniqueRequestCode = 0
+
+    private val missionTypes = listOf("math", "camera", "button") // 🔸 미션 목록
     private val alarmList = mutableListOf<AlarmData>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,6 +62,12 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         timePicker = findViewById(R.id.timePicker)
         setAlarmBtn = findViewById(R.id.setAlarmBtn)
+        missionSpinner = findViewById(R.id.missionSpinner)
+
+        // 🔸 스피너에 어댑터 설정
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, missionTypes)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        missionSpinner.adapter = adapter
 
         setAlarmBtn.setOnClickListener {
             if (!hasAlarmPermission()) {
@@ -88,12 +101,16 @@ class MainActivity : AppCompatActivity() {
     private fun setAlarm() {
         val hour = timePicker.hour
         val minute = timePicker.minute
-        val requestCode = alarmList.size + 1
+        uniqueRequestCode += 1
+        val requestCode = uniqueRequestCode
+        val missionType = missionSpinner.selectedItem.toString() // 🔸 선택된 미션 타입
 
-        val newAlarm = AlarmData(hour, minute, requestCode)
-        alarmList.add(newAlarm)
+        // 알람 데이터 객체를 생성해서 알람 리스트에 추가.
+        val alarmData = AlarmData(hour, minute, requestCode, missionType)
+        alarmList.add(alarmData)
         alarmAdapter.notifyItemInserted(alarmList.size - 1)
 
+        // 알람 시각을 설정
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
             set(Calendar.MINUTE, minute)
@@ -101,11 +118,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // 알람데이터 intent 객체 생성.
         val intent = Intent(this, AlarmReceiver::class.java).apply {
-            putExtra("requestCode",requestCode)
+            putExtra("alarmData", alarmData)
         }
+
+        // intent 예약.
         val pendingIntent = PendingIntent.getBroadcast(
-            this, requestCode, intent, PendingIntent.FLAG_IMMUTABLE
+            this, requestCode, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         alarmManager.setExact(
@@ -114,7 +135,7 @@ class MainActivity : AppCompatActivity() {
             pendingIntent
         )
 
-        Toast.makeText(this, "알람이 ${hour}시 ${minute}분에 설정되었습니다.", Toast.LENGTH_SHORT).show()
+        Log.d("Main:", "alarmData.requestCode: $requestCode")
     }
 
     private fun cancelAlarm(alarmData: AlarmData) {
@@ -134,14 +155,16 @@ class MainActivity : AppCompatActivity() {
 
         Toast.makeText(this, "알람 취소: ${alarmData.hour}시 ${alarmData.minute}분", Toast.LENGTH_SHORT).show()
     }
+
     private val alarmFiredReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val requestCode = intent?.getIntExtra("requestCode", -1) ?: return
+            Log.d("MainActivity", "Received alarm fired for requestCode: $requestCode")
 
             val index = alarmList.indexOfFirst { it.requestCode == requestCode }
             if (index != -1) {
                 alarmList.removeAt(index)
-                alarmAdapter.notifyItemRemoved(index)
+                alarmAdapter.notifyDataSetChanged()
             }
         }
     }
