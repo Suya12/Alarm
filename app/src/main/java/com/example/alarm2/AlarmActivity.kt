@@ -2,8 +2,9 @@ package com.example.alarm2
 
 import android.content.Intent
 import android.media.Ringtone
+import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -21,24 +22,29 @@ class AlarmActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 화면 켜기
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+
         binding = ActivityAlarmBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         // 컨테이너 연결
         container = binding.missionContainer
 
-        // 알람 데이터 가져오기
-        val alarmData = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            intent.getSerializableExtra("alarmData", AlarmData::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getSerializableExtra("alarmData") as? AlarmData
-        }
-
-        Log.d("AlarmActivity", "missionType: ${alarmData?.missionType}")
+        // 리시버에서 알람 데이터 받아오기
+        val alarmData = intent.getSerializableExtra("alarmData") as? AlarmData
+        val missionType = alarmData?.missionType
 
         // 미션 함수 호출
-        val missionType = intent.getStringExtra("MISSION_TYPE")
         when(missionType) {
             "math" -> showMathMission()
             "camera" -> {
@@ -48,6 +54,9 @@ class AlarmActivity : AppCompatActivity() {
             else -> showButtonMission()
         }
 
+        // Ringtone 재생 (AlarmService.kt foreground에서 실행됨)
+        val serviceIntent = Intent(this, AlarmService::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
     }
 
     private fun showButtonMission() {

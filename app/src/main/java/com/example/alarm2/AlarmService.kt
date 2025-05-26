@@ -9,13 +9,15 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
-
 class AlarmService : Service() {
 
     private var ringtone: Ringtone? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
+        Log.d("AlarmService", "onStartCommand 호출됨")
 
         // 포그라운드 서비스 알림 (필수, Android 8 이상)
         val channelId = "alarm_channel"

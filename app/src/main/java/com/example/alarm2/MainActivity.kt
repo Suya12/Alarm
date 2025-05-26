@@ -1,68 +1,43 @@
 package com.example.alarm2
 
+
 import android.annotation.SuppressLint
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
-import android.widget.Button
-import android.widget.TimePicker
-import android.widget.Toast
+import androidx.annotation.RequiresApi
+
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.alarm2.model.AlarmData
-import java.util.Calendar
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var timePicker: TimePicker
-    private lateinit var setAlarmBtn: Button
     private lateinit var alarmAdapter: AlarmAdapter
-
     private val alarmList = mutableListOf<AlarmData>()
 
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        initViews()
+        val filter = IntentFilter("com.example.alarm2.ALARM_FIRED")
+        val flags = Context.RECEIVER_NOT_EXPORTED // 내 앱 내부에서만 사용 (외부 앱에 공개하지 않음)
+        registerReceiver(alarmFiredReceiver, filter, flags)
+
         initRecyclerView()
+        initAddAlarmButton()
 
-        // 알람 울림 수신 등록
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(
-                alarmFiredReceiver,
-                IntentFilter("com.example.alarm2.ALARM_FIRED"),
-                Context.RECEIVER_EXPORTED
-            )
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag") // 여기는 suppress 해도 괜찮음
-            registerReceiver(
-                alarmFiredReceiver,
-                IntentFilter("com.example.alarm2.ALARM_FIRED")
-            )
-        }
-
+        loadSavedAlarms()
     }
 
-    private fun initViews() {
-        timePicker = findViewById(R.id.timePicker)
-        setAlarmBtn = findViewById(R.id.setAlarmBtn)
-
-        setAlarmBtn.setOnClickListener {
-            if (!hasAlarmPermission()) {
-                setAlarm()
-            }
-        }
-    }
-
+    // 알람 리스트 보여주는 리사이클러 뷰
     private fun initRecyclerView() {
         val recyclerView = findViewById<RecyclerView>(R.id.alarmRecyclerView)
         alarmAdapter = AlarmAdapter(alarmList) { alarm -> cancelAlarm(alarm) }
@@ -71,78 +46,74 @@ class MainActivity : AppCompatActivity() {
         recyclerView.adapter = alarmAdapter
     }
 
-    private fun hasAlarmPermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
-            if (!alarmManager.canScheduleExactAlarms()) {
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-                startActivity(intent)
-                return true
-            }
+    // 알람 추가 버튼
+    private fun initAddAlarmButton() {
+        val addAlarmButton: FloatingActionButton = findViewById(R.id.addAlarmButton)
+        addAlarmButton.setOnClickListener {
+            val intent = Intent(this, AddAlarmActivity::class.java)
+            startActivity(intent)
         }
-        return false
-    }
-
-    private fun setAlarm() {
-        val hour = timePicker.hour
-        val minute = timePicker.minute
-        val requestCode = alarmList.size + 1
-
-        val newAlarm = AlarmData(hour, minute, requestCode)
-        alarmList.add(newAlarm)
-        alarmAdapter.notifyItemInserted(alarmList.size - 1)
-
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-        }
-
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java).apply {
-            putExtra("requestCode",requestCode)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            this, requestCode, intent, PendingIntent.FLAG_IMMUTABLE
-        )
-
-        alarmManager.setExact(
-            AlarmManager.RTC_WAKEUP,
-            calendar.timeInMillis,
-            pendingIntent
-        )
-
-        Toast.makeText(this, "알람이 ${hour}시 ${minute}분에 설정되었습니다.", Toast.LENGTH_SHORT).show()
     }
 
     private fun cancelAlarm(alarmData: AlarmData) {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        // 1. 예약된 알람 취소
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
         val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
-            this, alarmData.requestCode, intent, PendingIntent.FLAG_IMMUTABLE
+        val pendingIntent = android.app.PendingIntent.getBroadcast(
+            this,
+            alarmData.requestCode,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         )
-
         alarmManager.cancel(pendingIntent)
 
-        val index = alarmList.indexOf(alarmData)
-        if (index != -1) {
-            alarmList.removeAt(index)
-            alarmAdapter.notifyItemRemoved(index)
+        // 2. SharedPreferences에서 해당 알람 삭제
+        val sharedPref = getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+        val gson = com.google.gson.Gson()
+        val json = sharedPref.getString("alarms", null)
+        val type = object : com.google.gson.reflect.TypeToken<MutableList<AlarmData>>() {}.type
+        val alarmListFromPrefs: MutableList<AlarmData> = if (json != null) {
+            gson.fromJson(json, type)
+        } else {
+            mutableListOf()
         }
 
-        Toast.makeText(this, "알람 취소: ${alarmData.hour}시 ${alarmData.minute}분", Toast.LENGTH_SHORT).show()
+        // requestCode 기준으로 삭제
+        alarmListFromPrefs.removeAll { it.requestCode == alarmData.requestCode }
+
+        // 다시 저장
+        val newJson = gson.toJson(alarmListFromPrefs)
+        sharedPref.edit().putString("alarms", newJson).apply()
+
+        // 3. 현재 화면의 리스트에서도 제거
+        alarmList.removeAll { it.requestCode == alarmData.requestCode }
+        alarmAdapter.notifyDataSetChanged()
+
+        android.widget.Toast.makeText(this, "알람이 삭제되었습니다.", android.widget.Toast.LENGTH_SHORT).show()
     }
+
+    // ✅ SharedPreferences에서 알람 불러오기
+    private fun loadSavedAlarms() {
+        val sharedPref = getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+        val gson = com.google.gson.Gson()
+        val json = sharedPref.getString("alarms", null)
+        val type = object : com.google.gson.reflect.TypeToken<MutableList<AlarmData>>() {}.type
+        val savedAlarms: MutableList<AlarmData> = if (json != null) {
+            gson.fromJson(json, type)
+        } else {
+            mutableListOf()
+        }
+
+        alarmList.clear()
+        alarmList.addAll(savedAlarms)
+        alarmAdapter.notifyDataSetChanged()
+    }
+
     private val alarmFiredReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val requestCode = intent?.getIntExtra("requestCode", -1) ?: return
-
-            val index = alarmList.indexOfFirst { it.requestCode == requestCode }
-            if (index != -1) {
-                alarmList.removeAt(index)
-                alarmAdapter.notifyItemRemoved(index)
-            }
+            alarmList.removeAll { it.requestCode == requestCode }
+            alarmAdapter.notifyDataSetChanged()
         }
     }
 
@@ -151,5 +122,11 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(alarmFiredReceiver)
     }
 
+
+    // AddAlarmActivity에서 돌아올 때 최신 데이터 반영
+    override fun onResume() {
+        super.onResume()
+        loadSavedAlarms()
+    }
 
 }
