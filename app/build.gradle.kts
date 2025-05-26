@@ -53,4 +53,6 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
     implementation(libs.camerax.extensions)
+
+    implementation("com.google.code.gson:gson:2.10.1")
 }
