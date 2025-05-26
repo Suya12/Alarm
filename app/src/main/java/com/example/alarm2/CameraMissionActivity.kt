@@ -3,23 +3,31 @@ package com.example.alarm2
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.alarm2.databinding.ActivityCameraBinding
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Locale
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
 class CameraMissionActivity: AppCompatActivity() {
+    private lateinit var previewView: PreviewView
+    private lateinit var overlayView: OverlayView
     private lateinit var binding: ActivityCameraBinding
     private lateinit var imageCapture: ImageCapture
     private val cameraExecutor = Executors.newSingleThreadExecutor()
@@ -28,6 +36,8 @@ class CameraMissionActivity: AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityCameraBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        previewView = binding.previewView
+        overlayView = binding.overlayView
 
         // 카메라 권한 확인
         if( ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
@@ -40,7 +50,8 @@ class CameraMissionActivity: AppCompatActivity() {
 
         // 사진 캡쳐
         binding.btnCapture.setOnClickListener {
-            takePhoto()
+            //takePhoto()
+            analyzeAssetImage()
         }
     }
 
@@ -75,32 +86,48 @@ class CameraMissionActivity: AppCompatActivity() {
     }
 
     private fun takePhoto() {
-        val photoFile = File(
-            outputDirectory,
-            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis()) + ".jpg"
-        )
 
-        // 사진 파일 저장 경로 지정
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
         imageCapture.takePicture(
-            outputOptions,
             ContextCompat.getMainExecutor(this),
             // 콜백 함수
-            object : ImageCapture.OnImageSavedCallback {
+            object : ImageCapture.OnImageCapturedCallback() {
                 // 사진 정상적으로 저장됨
-                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    Toast.makeText(this@CameraMissionActivity, "사진이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    val bitmap = imageProxyToBitmap(image)
+                    image.close()
 
                     // TODO: 여기서 YOLO 처리 후, 결과에 따라 알람 종료 여부 판단
+                    val analyzer = YoloAnalyzer(this@CameraMissionActivity) { results ->
+                        if (results.isEmpty()) {
+                            Toast.makeText(this@CameraMissionActivity, "객체를 찾지 못했습니다.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val labels = results.map { it.second }
+                            labels.forEach { label ->
+                                println("감지된 객체: $label")
+                            }
 
-                    // 알람 종료
-                    val stopIntent = Intent(this@CameraMissionActivity, AlarmService::class.java)
-                    stopService(stopIntent)
+                            Toast.makeText(this@CameraMissionActivity, "감지됨: ${labels.joinToString()}", Toast.LENGTH_SHORT).show()
 
-                    val intent = Intent(this@CameraMissionActivity, MainActivity::class.java)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                    finish()
+                            // "apple" in labels
+                            if (true) {
+                                val stopIntent = Intent(this@CameraMissionActivity, AlarmService::class.java)
+                                stopService(stopIntent)
+
+                                val intent = Intent(this@CameraMissionActivity, MainActivity::class.java)
+                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                startActivity(intent)
+                                finish()
+                            }
+                        }
+                    }
+
+                    if (bitmap == null) {
+                        Log.e("Camera", "Bitmap 변환 실패. image 닫음")
+                        return
+                    } else {
+                        analyzer.analyzeBitmap(bitmap)
+                    }
+
                 }
                 // 사진 저장 실패
                 override fun onError(exception: ImageCaptureException) {
@@ -110,19 +137,46 @@ class CameraMissionActivity: AppCompatActivity() {
         )
     }
 
-    private val outputDirectory: File
-        get() {
-            // 외부 저장소 중 앱 전용 폴더 가져오기
-            val externalDir = externalMediaDirs.firstOrNull()
+    private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
+        val format = image.format
+        Log.d("Camera", "Image format: $format, planes: ${image.planes.size}")
 
-            // 외부 저장소 하위에 alarm_photos 폴더 만들기
-            val folder = externalDir?.let {
-                File(it, "alarm_photos").apply { mkdirs() }
+        return when {
+            // JPEG 처리
+            format == ImageFormat.JPEG && image.planes.size == 1 -> {
+                val buffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             }
 
-            // 외부 저장소 폴더가 있으면 사용, 아니면 내부 저장소로 대체
-            return if (folder != null && folder.exists()) folder else filesDir
+            // YUV 처리
+            format == ImageFormat.YUV_420_888 && image.planes.size >= 3 -> {
+                val yBuffer = image.planes[0].buffer
+                val uBuffer = image.planes[1].buffer
+                val vBuffer = image.planes[2].buffer
+                val ySize = yBuffer.remaining()
+                val uSize = uBuffer.remaining()
+                val vSize = vBuffer.remaining()
+
+                val nv21 = ByteArray(ySize + uSize + vSize)
+                yBuffer.get(nv21, 0, ySize)
+                vBuffer.get(nv21, ySize, vSize)
+                uBuffer.get(nv21, ySize + vSize, uSize)
+
+                val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+                val out = ByteArrayOutputStream()
+                yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
+                val jpegBytes = out.toByteArray()
+                BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+            }
+
+            else -> {
+                Log.e("Camera", "지원하지 않는 이미지 포맷 또는 plane 부족. format=$format")
+                null
+            }
         }
+    }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -141,5 +195,33 @@ class CameraMissionActivity: AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+    }
+
+    fun analyzeAssetImage() {
+        try {
+            val inputStream = assets.open("test.jpg")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+
+            val analyzer = YoloAnalyzer(this) { results ->
+                if (results.isEmpty()) {
+                    Toast.makeText(this, "객체를 찾지 못했습니다.", Toast.LENGTH_SHORT).show()
+                } else {
+                    val labels = results.map { it.second }
+                    labels.forEach { label ->
+                        Log.d("YOLO", "감지된 객체: $label")
+                    }
+                    Toast.makeText(this, "감지됨: ${labels.joinToString()}", Toast.LENGTH_SHORT).show()
+                }
+
+                // 화면에 박스 그리기 (선택)
+                binding.overlayView.results = results
+            }
+
+            analyzer.analyzeBitmap(bitmap)
+
+        } catch (e: Exception) {
+            Log.e("YOLO", "이미지 분석 실패: ${e.message}")
+            Toast.makeText(this, "이미지 분석 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 }
