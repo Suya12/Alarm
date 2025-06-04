@@ -17,6 +17,8 @@ import com.example.alarm2.AlarmReceiver
 import com.example.alarm2.R
 import com.example.alarm2.model.AlarmData
 import java.util.Calendar
+import android.util.Log
+import androidx.core.app.ActivityCompat
 
 class AddAlarmActivity : AppCompatActivity() {
 
@@ -37,6 +39,14 @@ class AddAlarmActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, missionTypes)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         missionSpinner.adapter = adapter
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                100
+            )
+        }
 
         confirmBtn.setOnClickListener {
             val hour = timePicker.hour
@@ -126,6 +136,27 @@ class AddAlarmActivity : AppCompatActivity() {
                 calendar.timeInMillis,
                 pendingIntent
             )
+        }
+        // 로그 추가
+        Log.d("AlarmManager", "알람 등록됨: requestCode=${alarm.requestCode}, time=${calendar.timeInMillis}")
+    }
+
+    // 알람 복원 메서드
+    fun restoreAlarms(context: Context) {
+        val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+        val gson = com.google.gson.Gson()
+        val json = sharedPref.getString("alarms", null)
+        val type = object : com.google.gson.reflect.TypeToken<MutableList<AlarmData>>() {}.type
+        val alarmList: MutableList<AlarmData> = if (json != null) {
+            gson.fromJson(json, type)
+        } else {
+            mutableListOf()
+        }
+
+        for (alarm in alarmList) {
+            // setAlarm은 context에 맞게 호출 (Activity/Service 등)
+            (context as? AddAlarmActivity)?.setAlarm(alarm)
+            // 또는 setAlarm을 static/companion object로 옮겨서 호출
         }
     }
 

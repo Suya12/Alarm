@@ -55,4 +55,7 @@ dependencies {
     implementation(libs.camerax.extensions)
 
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation ("org.tensorflow:tensorflow-lite:2.13.0") // 또는 최신 버전
+    implementation ("org.tensorflow:tensorflow-lite-support:0.4.3")
+    implementation ("org.tensorflow:tensorflow-lite-gpu:2.13.0") // GPU 사용 시
 }
