@@ -23,34 +23,14 @@ class AlarmActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.addFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
-        )
-        // 화면 켜기
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
-
         binding = ActivityAlarmBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 컨테이너 연결
         container = binding.missionContainer
 
-        // 리시버에서 알람 데이터 받아오기
         val alarmData = intent.getSerializableExtra("alarmData") as? AlarmData
         val missionType = alarmData?.missionType
 
-        // 미션 함수 호출
         when(missionType) {
             "math" -> showMathMission()
             "camera" -> {
@@ -60,26 +40,28 @@ class AlarmActivity : AppCompatActivity() {
             else -> showButtonMission()
         }
 
-        // Ringtone 재생 (AlarmService.kt foreground에서 실행됨)
-        val serviceIntent = Intent(this, AlarmService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
+        // 🔇 AlarmService는 이미 Receiver에서 실행되므로 생략
+        // val serviceIntent = Intent(this, AlarmService::class.java)
+        // ContextCompat.startForegroundService(this, serviceIntent)
     }
+
 
     private fun showButtonMission() {
         val binding = MissionButtonBinding.inflate(layoutInflater)
         container.removeAllViews()
         container.addView(binding.root)
 
-        // 버튼 누르면 벨소리 중지 + 화면 닫기
-        val stopIntent = Intent(this, AlarmService::class.java)
-        stopService(stopIntent)
+        binding.stopAlarmBtn.setOnClickListener {
+            val stopIntent = Intent(this, AlarmService::class.java)
+            stopService(stopIntent)
 
-        // MainActivity로 전환
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
-        finish()
+            val intent = Intent(this, MainActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            finish()
+        }
     }
+
 
     private fun showMathMission() {
         // mission math xml 연결

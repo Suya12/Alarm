@@ -1,5 +1,6 @@
 package com.example.alarm2
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -16,35 +17,47 @@ class AlarmService : Service() {
     private var ringtone: Ringtone? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-
-        Log.d("AlarmService", "onStartCommand 호출됨")
-
-        // 포그라운드 서비스 알림 (필수, Android 8 이상)
-        val channelId = "alarm_channel"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId, "Alarm Channel",
-                NotificationManager.IMPORTANCE_HIGH
-            )
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("알람 실행 중")
-            .setContentText("알람이 울리고 있습니다.")
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // 임시 아이콘, 아이콘 반드시 필요.
-            .build()
+        val notification = createSilentNotification() // 아래에 정의된 함수
 
         startForeground(1, notification)
 
-        // Ringtone 재생
-        val alarmUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        // 벨소리 울리기
+        val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         ringtone = RingtoneManager.getRingtone(this, alarmUri)
         ringtone?.play()
 
-        return START_REDELIVER_INTENT
+        return START_NOT_STICKY
     }
+
+    private fun createSilentNotification(): Notification {
+        val channelId = "alarm_silent_channel"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Silent Alarm Channel",
+                NotificationManager.IMPORTANCE_MIN
+            ).apply {
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+
+        return NotificationCompat.Builder(this, channelId)
+            .setContentTitle("")
+            .setContentText("")
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // 대체 아이콘 넣어도 됨
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setSilent(true)
+            .build()
+    }
+
+
 
     override fun onDestroy() {
         super.onDestroy()

@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.alarm2.AlarmActivity
 import com.example.alarm2.model.AlarmData
 import com.google.gson.Gson
@@ -50,7 +51,6 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        Log.d("AlarmReceiver","AlarmData.requestCode: ${alarmData.requestCode}")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
@@ -58,23 +58,20 @@ class AlarmReceiver : BroadcastReceiver() {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Alarm channel"
-                // 알림을 전체화면으로 띄우기 위해 중요도 설정
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
             notificationManager.createNotificationChannel(channel)
         }
 
-        // ▶ AlarmActivity를 띄울 인텐트
-        val fullScreenIntent = Intent(context, AlarmActivity::class.java).apply {
+        // ▶ 사용자가 눌렀을 때만 AlarmActivity로 이동
+        val contentIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("alarmData", alarmData)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
-        // ▶ PendingIntent 설정
-        val fullScreenPendingIntent = PendingIntent.getActivity(
+        val pendingIntent = PendingIntent.getActivity(
             context,
             alarmData.requestCode,
-            fullScreenIntent,
+            contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -85,13 +82,16 @@ class AlarmReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(fullScreenPendingIntent, true) // 👈 여기!
+            .setContentIntent(pendingIntent) // 🔔 클릭 시 AlarmActivity 실행
             .build()
 
-
-
         notificationManager.notify(alarmData.requestCode, notification)
+
+        // ▶ 알람 소리 재생을 위한 AlarmService 실행
+        val serviceIntent = Intent(context, AlarmService::class.java)
+        ContextCompat.startForegroundService(context, serviceIntent)
     }
+
 
     private fun removeAlarmFromPrefs(context: Context, requestCode: Int) {
         val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
