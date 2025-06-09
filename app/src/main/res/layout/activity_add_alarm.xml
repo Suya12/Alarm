@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
@@ -16,6 +17,124 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="반복 요일 선택"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/daySelector"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <CheckBox
+            android:id="@+id/checkMon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="월"
+            android:background="@drawable/day_checkbox"
+            android:textColor="@android:color/black"
+            android:button="@null"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:textSize="20dp"
+            android:gravity="center"
+            />
+
+
+        <CheckBox
+            android:id="@+id/checkTue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="화"
+            android:background="@drawable/day_checkbox"
+            android:textColor="@android:color/black"
+            android:button="@null"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:textSize="20dp"
+            android:gravity="center"
+            />
+
+        <CheckBox
+            android:id="@+id/checkWed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="수"
+            android:background="@drawable/day_checkbox"
+            android:textColor="@android:color/black"
+            android:button="@null"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:textSize="20dp"
+            android:gravity="center"
+            />
+
+        <CheckBox
+            android:id="@+id/checkThu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="목"
+            android:background="@drawable/day_checkbox"
+            android:textColor="@android:color/black"
+            android:button="@null"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:textSize="20dp"
+            android:gravity="center"
+            />
+
+        <CheckBox
+            android:id="@+id/checkFri"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="금"
+            android:background="@drawable/day_checkbox"
+            android:textColor="@android:color/black"
+            android:button="@null"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:textSize="20dp"
+            android:gravity="center"
+            />
+
+        <CheckBox
+            android:id="@+id/checkSat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="토"
+            android:background="@drawable/day_checkbox"
+            android:textColor="@android:color/black"
+            android:button="@null"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:textSize="20dp"
+            android:gravity="center"
+            />
+
+        <CheckBox
+            android:id="@+id/checkSun"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="일"
+            android:background="@drawable/day_checkbox"
+            android:textColor="@android:color/black"
+            android:button="@null"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:textSize="20dp"
+            android:gravity="center"
+            />
+
+    </LinearLayout>
 
     <Button
         android:id="@+id/confirmBtn"
