@@ -6,5 +6,6 @@ data class AlarmData (
     val hour: Int,
     val minute: Int,
     val requestCode: Int,
-    val missionType: String
+    val missionType: String,
+    val repeatDays: Set<String> = emptySet()
 ) : Serializable

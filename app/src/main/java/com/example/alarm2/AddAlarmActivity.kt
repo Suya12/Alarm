@@ -8,18 +8,19 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.Spinner
 import android.widget.TimePicker
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import com.example.alarm2.AlarmReceiver
 import com.example.alarm2.R
 import com.example.alarm2.model.AlarmData
 import java.util.Calendar
-import android.util.Log
-import androidx.core.app.ActivityCompat
 
 class AddAlarmActivity : AppCompatActivity() {
 
@@ -27,7 +28,17 @@ class AddAlarmActivity : AppCompatActivity() {
     private lateinit var missionSpinner: Spinner
     private lateinit var confirmBtn: Button
 
+    private lateinit var checkMon: CheckBox
+    private lateinit var checkTue: CheckBox
+    private lateinit var checkWed: CheckBox
+    private lateinit var checkThu: CheckBox
+    private lateinit var checkFri: CheckBox
+    private lateinit var checkSat: CheckBox
+    private lateinit var checkSun: CheckBox
+
     private val missionTypes = listOf("button", "shaking", "math", "camera")
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +47,14 @@ class AddAlarmActivity : AppCompatActivity() {
         timePicker = findViewById(R.id.timePicker)
         missionSpinner = findViewById(R.id.missionSpinner)
         confirmBtn = findViewById(R.id.confirmBtn)
+
+        checkMon = findViewById(R.id.checkMon)
+        checkTue = findViewById(R.id.checkTue)
+        checkWed = findViewById(R.id.checkWed)
+        checkThu = findViewById(R.id.checkThu)
+        checkFri = findViewById(R.id.checkFri)
+        checkSat = findViewById(R.id.checkSat)
+        checkSun = findViewById(R.id.checkSun)
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, missionTypes)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -54,12 +73,21 @@ class AddAlarmActivity : AppCompatActivity() {
         }
 
         confirmBtn.setOnClickListener {
+            val repeatDays = mutableSetOf<String>()
+            if (checkMon.isChecked) repeatDays.add("MON")
+            if (checkTue.isChecked) repeatDays.add("TUE")
+            if (checkWed.isChecked) repeatDays.add("WED")
+            if (checkThu.isChecked) repeatDays.add("THU")
+            if (checkFri.isChecked) repeatDays.add("FRI")
+            if (checkSat.isChecked) repeatDays.add("SAT")
+            if (checkSun.isChecked) repeatDays.add("SUN")
+
             val hour = timePicker.hour
             val minute = timePicker.minute
             val missionType = missionSpinner.selectedItem.toString()
-
             val requestCode = System.currentTimeMillis().toInt()
-            val newAlarm = AlarmData(hour, minute, requestCode, missionType)
+
+            val newAlarm = AlarmData(hour, minute, requestCode, missionType, repeatDays)
 
             saveAlarm(newAlarm)
 
@@ -109,7 +137,7 @@ class AddAlarmActivity : AppCompatActivity() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         val intent = Intent(this, AlarmReceiver::class.java).apply {
-            putExtra("alarmData", alarm) // ✅ 반드시 이걸 넣어야 AlarmReceiver에서 alarmData 받음
+            putExtra("alarmData", alarm)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -128,7 +156,6 @@ class AddAlarmActivity : AppCompatActivity() {
             }
         }
 
-        // 정확한 알람 요청
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -142,11 +169,10 @@ class AddAlarmActivity : AppCompatActivity() {
                 pendingIntent
             )
         }
-        // 로그 추가
+
         Log.d("AlarmManager", "알람 등록됨: requestCode=${alarm.requestCode}, time=${calendar.timeInMillis}")
     }
 
-    // 알람 복원 메서드
     fun restoreAlarms(context: Context) {
         val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
         val gson = com.google.gson.Gson()
@@ -159,11 +185,7 @@ class AddAlarmActivity : AppCompatActivity() {
         }
 
         for (alarm in alarmList) {
-            // setAlarm은 context에 맞게 호출 (Activity/Service 등)
             (context as? AddAlarmActivity)?.setAlarm(alarm)
-            // 또는 setAlarm을 static/companion object로 옮겨서 호출
         }
     }
-
-
 }
