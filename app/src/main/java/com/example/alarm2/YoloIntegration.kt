@@ -22,7 +22,6 @@ import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 
-// Custom View for drawing detection boxes
 typealias DetectionResult = Pair<RectF, String>
 
 class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
@@ -90,55 +89,93 @@ class YoloAnalyzer(
         val output = Array(1) { Array(25200) { FloatArray(85) } }
         interpreter.run(byteBuffer, output)
         val results = postProcess(output[0], bitmap.width, bitmap.height)
+        Log.d("camera", "detected labels: $results")
         onResults(results)
     }
 
     fun analyze(imageProxy: ImageProxy) {
-        val byteBitmap = imageProxyToBitmap(imageProxy) ?: return
-        val output = Array(1) { Array(25200) { FloatArray(6) } }
-        interpreter.run(byteBitmap, output)
-        val results = postProcess(output[0], imageProxy.width, imageProxy.height)
+        val bitmap = imageProxyToBitmap(imageProxy) ?: return
+
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
+        val byteBuffer = ByteBuffer.allocateDirect(1 * inputSize * inputSize * 3 * 4).apply {
+            order(ByteOrder.nativeOrder())
+        }
+
+        val intValues = IntArray(inputSize * inputSize)
+        resizedBitmap.getPixels(intValues, 0, inputSize, 0, 0, inputSize, inputSize)
+        for (pixel in intValues) {
+            byteBuffer.putFloat(((pixel shr 16) and 0xFF) / 255.0f) // R
+            byteBuffer.putFloat(((pixel shr 8) and 0xFF) / 255.0f)  // G
+            byteBuffer.putFloat((pixel and 0xFF) / 255.0f)          // B
+        }
+
+        val output = Array(1) { Array(25200) { FloatArray(85) } }
+        interpreter.run(byteBuffer, output)
+
+        val results = postProcess(output[0], bitmap.width, bitmap.height)
         onResults(results)
         imageProxy.close()
     }
 
-    private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
-        val format = image.format
-        Log.d("Camera", "Image format: $format, planes: ${image.planes.size}")
 
-        return if (format == ImageFormat.JPEG && image.planes.size == 1) {
-            // JPEG 처리
-            val buffer = image.planes[0].buffer
-            val bytes = ByteArray(buffer.remaining())
-            buffer.get(bytes)
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        } else if (format == ImageFormat.YUV_420_888 && image.planes.size >= 3) {
-            // YUV 처리 (기존 방식)
-            val yBuffer = image.planes[0].buffer
-            val uBuffer = image.planes[1].buffer
-            val vBuffer = image.planes[2].buffer
-            val ySize = yBuffer.remaining()
-            val uSize = uBuffer.remaining()
-            val vSize = vBuffer.remaining()
+    companion object {
+        fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
+            val format = image.format
+            Log.d("Camera", "Image format: $format, planes: ${image.planes.size}")
 
-            val nv21 = ByteArray(ySize + uSize + vSize)
-            yBuffer.get(nv21, 0, ySize)
-            vBuffer.get(nv21, ySize, vSize)
-            uBuffer.get(nv21, ySize + vSize, uSize)
+            return if (format == ImageFormat.JPEG && image.planes.size == 1) {
+                val buffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } else if (format == ImageFormat.YUV_420_888 && image.planes.size >= 3) {
+                val yBuffer = image.planes[0].buffer
+                val uBuffer = image.planes[1].buffer
+                val vBuffer = image.planes[2].buffer
+                val ySize = yBuffer.remaining()
+                val uSize = uBuffer.remaining()
+                val vSize = vBuffer.remaining()
 
-            val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
-            val out = ByteArrayOutputStream()
-            yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
-            val jpegData = out.toByteArray()
-            BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
-        } else {
-            Log.e("Camera", "지원하지 않는 이미지 포맷입니다: $format")
-            null
+                val nv21 = ByteArray(ySize + uSize + vSize)
+                yBuffer.get(nv21, 0, ySize)
+                vBuffer.get(nv21, ySize, vSize)
+                uBuffer.get(nv21, ySize + vSize, uSize)
+
+                val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+                val out = ByteArrayOutputStream()
+                yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
+                val jpegData = out.toByteArray()
+                BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
+            } else {
+                Log.e("Camera", "지원하지 않는 이미지 포멧입니다: $format")
+                null
+            }
         }
+    }
+
+    private fun calculateIoU(a: RectF, b: RectF): Float {
+        val intersectionLeft = maxOf(a.left, b.left)
+        val intersectionTop = maxOf(a.top, b.top)
+        val intersectionRight = minOf(a.right, b.right)
+        val intersectionBottom = minOf(a.bottom, b.bottom)
+
+        val intersectionArea = maxOf(0f, intersectionRight - intersectionLeft) *
+                maxOf(0f, intersectionBottom - intersectionTop)
+
+        val areaA = (a.right - a.left) * (a.bottom - a.top)
+        val areaB = (b.right - b.left) * (b.bottom - b.top)
+
+        val unionArea = areaA + areaB - intersectionArea
+        return if (unionArea <= 0f) 0f else (intersectionArea / unionArea)
     }
 
     private fun postProcess(output: Array<FloatArray>, imageWidth: Int, imageHeight: Int): List<DetectionResult> {
         val results = mutableListOf<DetectionResult>()
+        val threshold = 0.25f
+        val iouThreshold = 0.45f
+
+        // 1. 모든 탐지 결과를 confidence 기준으로 필터링
+        val boxes = mutableListOf<DetectionResult>()
 
         for (detection in output) {
             val x = detection[0]
@@ -150,22 +187,43 @@ class YoloAnalyzer(
             val classScores = detection.copyOfRange(5, detection.size)
             val maxClassScore = classScores.maxOrNull() ?: 0f
             val classIndex = classScores.toList().indexOf(maxClassScore)
-
             val confidence = objectness * maxClassScore
 
-            if (confidence > 0.3f && classIndex in labels.indices) {
+            if (confidence > threshold && classIndex in labels.indices) {
                 val left = (x - w / 2) * imageWidth
                 val top = (y - h / 2) * imageHeight
                 val right = (x + w / 2) * imageWidth
                 val bottom = (y + h / 2) * imageHeight
 
+                val rect = RectF(left, top, right, bottom)
                 val label = labels[classIndex]
-                results.add(RectF(left, top, right, bottom) to label)
+                boxes.add(rect to label)
             }
         }
 
-        return results
+        // 2. NMS 수행
+        val selected = mutableListOf<DetectionResult>()
+        val used = BooleanArray(boxes.size)
+
+        for (i in boxes.indices) {
+            if (used[i]) continue
+            val (rectA, labelA) = boxes[i]
+            selected.add(boxes[i])
+            used[i] = true
+
+            for (j in i + 1 until boxes.size) {
+                if (used[j]) continue
+                val (rectB, _) = boxes[j]
+                val iou = calculateIoU(rectA, rectB)
+                if (iou > iouThreshold) {
+                    used[j] = true
+                }
+            }
+        }
+
+        return selected
     }
+
 
     private fun loadModelFile(context: Context, modelName: String): MappedByteBuffer {
         val fileDescriptor = context.assets.openFd(modelName)

@@ -1,6 +1,5 @@
 package com.example.alarm2
 
-import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -13,104 +12,83 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.Spinner
-import android.widget.TimePicker
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import com.example.alarm2.databinding.ActivityMainBinding
 import com.example.alarm2.model.AlarmData
 import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var timePicker: TimePicker
-    private lateinit var setAlarmBtn: Button
+    private lateinit var binding: ActivityMainBinding
     private lateinit var alarmAdapter: AlarmAdapter
-    private lateinit var missionSpinner: Spinner
 
     private var uniqueRequestCode = 0
-
-    private val missionTypes = listOf("math", "camera", "button") // 🔸 미션 목록
     private val alarmList = mutableListOf<AlarmData>()
+    private val missionTypes = listOf("math", "camera", "button")
+
+    // 선택된 미션 데이터 (카메라 미션용)
+    private var selectedCameraLabel: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         initViews()
         initRecyclerView()
-
-        // 알람 울림 수신 등록
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(
-                alarmFiredReceiver,
-                IntentFilter("com.example.alarm2.ALARM_FIRED"),
-                Context.RECEIVER_EXPORTED
-            )
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag") // 여기는 suppress 해도 괜찮음
-            registerReceiver(
-                alarmFiredReceiver,
-                IntentFilter("com.example.alarm2.ALARM_FIRED")
-            )
-        }
-
+        registerAlarmFiredReceiver()
     }
 
     private fun initViews() {
-        timePicker = findViewById(R.id.timePicker)
-        setAlarmBtn = findViewById(R.id.setAlarmBtn)
-        missionSpinner = findViewById(R.id.missionSpinner)
-
-        // 🔸 스피너에 어댑터 설정
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, missionTypes)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        missionSpinner.adapter = adapter
+        binding.missionSpinner.adapter = adapter
 
-        setAlarmBtn.setOnClickListener {
-            if (!hasAlarmPermission()) {
-                setAlarm()
+        binding.setAlarmBtn.setOnClickListener {
+            if (hasAlarmPermission()) return@setOnClickListener
+
+            val missionType = binding.missionSpinner.selectedItem.toString()
+            if (missionType == "camera") {
+                // 카메라 미션이면 객체 선택 먼저
+                val setupIntent = Intent(this, AlarmActivity::class.java).apply {
+                    action = "SETUP_CAMERA_MISSION_ACTION"
+                }
+                cameraMissionSetupLauncher.launch(setupIntent)
+            } else {
+                // 수학/버튼 미션이면 바로 알람 설정
+                setAlarm(missionType, answerLabel = "")
             }
         }
     }
 
     private fun initRecyclerView() {
-        val recyclerView = findViewById<RecyclerView>(R.id.alarmRecyclerView)
         alarmAdapter = AlarmAdapter(alarmList) { alarm -> cancelAlarm(alarm) }
-
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = alarmAdapter
+        binding.alarmRecyclerView.layoutManager = LinearLayoutManager(this)
+        binding.alarmRecyclerView.adapter = alarmAdapter
     }
 
-    private fun hasAlarmPermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
-            if (!alarmManager.canScheduleExactAlarms()) {
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-                startActivity(intent)
-                return true
-            }
+    private fun registerAlarmFiredReceiver() {
+        val filter = IntentFilter("com.example.alarm2.ALARM_FIRED")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(alarmFiredReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(alarmFiredReceiver, filter)
         }
-        return false
     }
 
-    private fun setAlarm() {
-        val hour = timePicker.hour
-        val minute = timePicker.minute
-        uniqueRequestCode += 1
-        val requestCode = uniqueRequestCode
-        val missionType = missionSpinner.selectedItem.toString() // 🔸 선택된 미션 타입
+    private fun setAlarm(missionType: String, answerLabel: String) {
+        val hour = binding.timePicker.hour
+        val minute = binding.timePicker.minute
+        val requestCode = ++uniqueRequestCode
 
-        // 알람 데이터 객체를 생성해서 알람 리스트에 추가.
-        val alarmData = AlarmData(hour, minute, requestCode, missionType)
+        val alarmData = AlarmData(hour, minute, requestCode, missionType, answerLabel)
         alarmList.add(alarmData)
         alarmAdapter.notifyItemInserted(alarmList.size - 1)
 
-        // 알람 시각을 설정
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
             set(Calendar.MINUTE, minute)
@@ -118,24 +96,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
-        // 알람데이터 intent 객체 생성.
         val intent = Intent(this, AlarmReceiver::class.java).apply {
             putExtra("alarmData", alarmData)
         }
 
-        // intent 예약.
         val pendingIntent = PendingIntent.getBroadcast(
-            this, requestCode, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            this, requestCode, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        alarmManager.setExact(
-            AlarmManager.RTC_WAKEUP,
-            calendar.timeInMillis,
-            pendingIntent
-        )
+        alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
 
-        Log.d("Main:", "alarmData.requestCode: $requestCode")
+        Toast.makeText(this, "알람 설정 완료: $hour:$minute ($missionType)", Toast.LENGTH_SHORT).show()
     }
 
     private fun cancelAlarm(alarmData: AlarmData) {
@@ -153,14 +125,12 @@ class MainActivity : AppCompatActivity() {
             alarmAdapter.notifyItemRemoved(index)
         }
 
-        Toast.makeText(this, "알람 취소: ${alarmData.hour}시 ${alarmData.minute}분", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "알람 취소: ${alarmData.hour}:${alarmData.minute}", Toast.LENGTH_SHORT).show()
     }
 
     private val alarmFiredReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val requestCode = intent?.getIntExtra("requestCode", -1) ?: return
-            Log.d("MainActivity", "Received alarm fired for requestCode: $requestCode")
-
             val index = alarmList.indexOfFirst { it.requestCode == requestCode }
             if (index != -1) {
                 alarmList.removeAt(index)
@@ -169,10 +139,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val cameraMissionSetupLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        Log.d("MainActivity", "resultCode: ${result.resultCode}")
+        if (result.resultCode == RESULT_OK) {
+            val label = result.data?.getStringExtra("selectedLabel")
+            Log.d("MainActivity", "CameraMissionActivity로부터 받은 라벨: $label")
+
+            if (label != null) {
+                selectedCameraLabel = label
+                // 카메라 미션 알람 등록
+                setAlarm("camera", answerLabel = label)
+            } else {
+                Toast.makeText(this, "카메라 객체 선택 실패", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun hasAlarmPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+                return true
+            }
+        }
+        return false
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(alarmFiredReceiver)
     }
-
-
 }
