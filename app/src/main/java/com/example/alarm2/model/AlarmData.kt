@@ -8,4 +8,5 @@ data class AlarmData (
     val requestCode: Int,
     val missionType: String,
     val answerLabel: String? = null, // camera 미션에서만 사용
+    val repeatDays: Set<String> = emptySet()
 ) : Serializable

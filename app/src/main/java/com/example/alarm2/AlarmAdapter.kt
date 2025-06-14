@@ -16,6 +16,7 @@ class AlarmAdapter(
     class AlarmViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val alarmTimeText: TextView = itemView.findViewById(R.id.alarmTimeText)
         val cancelBtn: Button = itemView.findViewById(R.id.cancelBtn) // 알람 취소 버튼
+        val missionTypeTextView: TextView = itemView.findViewById(R.id.missionTypeTextView)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AlarmViewHolder {
@@ -27,6 +28,7 @@ class AlarmAdapter(
     override fun onBindViewHolder(holder: AlarmViewHolder, position: Int) {
         val alarm = alarmList[position]
         holder.alarmTimeText.text = String.format("%02d:%02d", alarm.hour, alarm.minute)
+        holder.missionTypeTextView.text = alarm.missionType
 
         holder.cancelBtn.setOnClickListener{
             onCancelClick(alarm) // 알람 취소 요청 콜백 호출

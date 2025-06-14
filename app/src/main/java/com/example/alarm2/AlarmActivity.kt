@@ -25,9 +25,9 @@ class AlarmActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         binding = ActivityAlarmBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         container = binding.missionContainer
 
         alarmData = intent.getSerializableExtra("alarmData") as? AlarmData
@@ -41,25 +41,20 @@ class AlarmActivity : AppCompatActivity() {
                 putExtra("mode", "setup")
             }
             cameraMissionLauncher.launch(intent)
-
         } else {
             val missionType = alarmData?.missionType
             val retry = intent.getBooleanExtra("retry_camera", false)
 
-            if (missionType == "camera") {
-                showFindObjectMission(alarmData?.answerLabel)
-            } else if (missionType == "math") {
-                showMathMission()
-            } else {
-                showButtonMission()
+            when (missionType) {
+                "camera" -> showFindObjectMission(alarmData?.answerLabel)
+                "math" -> showMathMission()
+                else -> showButtonMission()
             }
 
-            // ✅ 서비스는 카메라든 뭐든 항상 실행
+            // ✅ 알람 서비스 시작
             val serviceIntent = Intent(this, AlarmService::class.java)
             ContextCompat.startForegroundService(this, serviceIntent)
         }
-
-
     }
 
     private val cameraMissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -76,11 +71,9 @@ class AlarmActivity : AppCompatActivity() {
                 setResult(RESULT_OK, returnIntent)
                 finish()
             } else {
-                // 객체 선택 실패 - 다시 Mission 화면으로 돌아감
                 showFindObjectMission(currentAnswerLabel)
             }
         } else {
-            // 객체 감지 실패 - 다시 Mission 화면으로 돌아감
             showFindObjectMission(currentAnswerLabel)
         }
     }
@@ -90,13 +83,15 @@ class AlarmActivity : AppCompatActivity() {
         container.removeAllViews()
         container.addView(binding.root)
 
-        val stopIntent = Intent(this, AlarmService::class.java)
-        stopService(stopIntent)
+        binding.btnDismiss.setOnClickListener {
+            val stopIntent = Intent(this, AlarmService::class.java)
+            stopService(stopIntent)
 
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
-        finish()
+            val intent = Intent(this, MainActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            finish()
+        }
     }
 
     private fun showMathMission() {
@@ -106,28 +101,12 @@ class AlarmActivity : AppCompatActivity() {
 
         val a = (1..99).random()
         val b = (1..99).random()
-        val operators = listOf("+" , "-")
-        val operator = operators.random()
-        val questionText: String
-        val answer: Int
-        when(operator) {
-            "+" -> {
-                questionText = "$a + $b = ?"
-                answer = a + b
-            }
-            "-" -> {
-                if(a > b) {
-                    questionText = "$a - $b = ?"
-                    answer = a - b
-                } else {
-                    questionText = "$b - $a = ?"
-                    answer = b - a
-                }
-            }
-            else -> {
-                questionText = "오류"
-                answer = 0
-            }
+        val operator = listOf("+", "-").random()
+
+        val (questionText, answer) = when (operator) {
+            "+" -> "$a + $b = ?" to a + b
+            "-" -> if (a > b) "$a - $b = ?" to a - b else "$b - $a = ?" to b - a
+            else -> "오류" to 0
         }
 
         binding.tvQuestion.text = "문제: $questionText"
@@ -156,7 +135,6 @@ class AlarmActivity : AppCompatActivity() {
 
         binding.tvObjectToFind.text = "🔎 찾아야 할 객체: ${answerLabel ?: "알 수 없음"}"
 
-        // 알람은 이미 울리고 있으므로 서비스는 그대로 둠
         binding.btnStartObjectFinding.setOnClickListener {
             val intent = Intent(this, CameraMissionActivity::class.java).apply {
                 putExtra("mode", "mission")
@@ -166,10 +144,7 @@ class AlarmActivity : AppCompatActivity() {
             startActivity(intent)
             finish()
         }
-
     }
-
-
 
     override fun onDestroy() {
         super.onDestroy()

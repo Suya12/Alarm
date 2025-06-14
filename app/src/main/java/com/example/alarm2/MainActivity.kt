@@ -2,6 +2,7 @@ package com.example.alarm2
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -14,10 +15,14 @@ import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.alarm2.databinding.ActivityMainBinding
 import com.example.alarm2.model.AlarmData
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
@@ -28,10 +33,9 @@ class MainActivity : AppCompatActivity() {
     private var uniqueRequestCode = 0
     private val alarmList = mutableListOf<AlarmData>()
     private val missionTypes = listOf("math", "camera", "button")
-
-    // 선택된 미션 데이터 (카메라 미션용)
     private var selectedCameraLabel: String? = null
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -40,6 +44,8 @@ class MainActivity : AppCompatActivity() {
         initViews()
         initRecyclerView()
         registerAlarmFiredReceiver()
+        initAddAlarmButton()
+        loadSavedAlarms()
     }
 
     private fun initViews() {
@@ -52,13 +58,11 @@ class MainActivity : AppCompatActivity() {
 
             val missionType = binding.missionSpinner.selectedItem.toString()
             if (missionType == "camera") {
-                // 카메라 미션이면 객체 선택 먼저
                 val setupIntent = Intent(this, AlarmActivity::class.java).apply {
                     action = "SETUP_CAMERA_MISSION_ACTION"
                 }
                 cameraMissionSetupLauncher.launch(setupIntent)
             } else {
-                // 수학/버튼 미션이면 바로 알람 설정
                 setAlarm(missionType, answerLabel = "")
             }
         }
@@ -75,8 +79,15 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(alarmFiredReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(alarmFiredReceiver, filter)
+        }
+    }
+
+    private fun initAddAlarmButton() {
+        val addAlarmButton: FloatingActionButton = findViewById(R.id.addAlarmButton)
+        addAlarmButton.setOnClickListener {
+            val intent = Intent(this, AddAlarmActivity::class.java)
+            startActivity(intent)
         }
     }
 
@@ -114,28 +125,55 @@ class MainActivity : AppCompatActivity() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
-            this, alarmData.requestCode, intent, PendingIntent.FLAG_IMMUTABLE
+            this,
+            alarmData.requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
         alarmManager.cancel(pendingIntent)
 
-        val index = alarmList.indexOf(alarmData)
-        if (index != -1) {
-            alarmList.removeAt(index)
-            alarmAdapter.notifyItemRemoved(index)
+        val sharedPref = getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+        val gson = Gson()
+        val json = sharedPref.getString("alarms", null)
+        val type = object : TypeToken<MutableList<AlarmData>>() {}.type
+        val alarmListFromPrefs: MutableList<AlarmData> = if (json != null) {
+            gson.fromJson(json, type)
+        } else {
+            mutableListOf()
         }
 
-        Toast.makeText(this, "알람 취소: ${alarmData.hour}:${alarmData.minute}", Toast.LENGTH_SHORT).show()
+        alarmListFromPrefs.removeAll { it.requestCode == alarmData.requestCode }
+
+        val newJson = gson.toJson(alarmListFromPrefs)
+        sharedPref.edit().putString("alarms", newJson).apply()
+
+        alarmList.removeAll { it.requestCode == alarmData.requestCode }
+        alarmAdapter.notifyDataSetChanged()
+
+        Toast.makeText(this, "알람이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun loadSavedAlarms() {
+        val sharedPref = getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
+        val gson = Gson()
+        val json = sharedPref.getString("alarms", null)
+        val type = object : TypeToken<MutableList<AlarmData>>() {}.type
+        val savedAlarms: MutableList<AlarmData> = if (json != null) {
+            gson.fromJson(json, type)
+        } else {
+            mutableListOf()
+        }
+
+        alarmList.clear()
+        alarmList.addAll(savedAlarms)
+        alarmAdapter.notifyDataSetChanged()
     }
 
     private val alarmFiredReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val requestCode = intent?.getIntExtra("requestCode", -1) ?: return
-            val index = alarmList.indexOfFirst { it.requestCode == requestCode }
-            if (index != -1) {
-                alarmList.removeAt(index)
-                alarmAdapter.notifyDataSetChanged()
-            }
+            alarmList.removeAll { it.requestCode == requestCode }
+            alarmAdapter.notifyDataSetChanged()
         }
     }
 
@@ -147,7 +185,6 @@ class MainActivity : AppCompatActivity() {
 
             if (label != null) {
                 selectedCameraLabel = label
-                // 카메라 미션 알람 등록
                 setAlarm("camera", answerLabel = label)
             } else {
                 Toast.makeText(this, "카메라 객체 선택 실패", Toast.LENGTH_SHORT).show()
@@ -172,5 +209,10 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(alarmFiredReceiver)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadSavedAlarms()
     }
 }
