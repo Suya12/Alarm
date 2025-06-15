@@ -100,9 +100,9 @@ class AlarmReceiver : BroadcastReceiver() {
             .setContentTitle("⏰ 알람이 울립니다")
             .setContentText("알람 시간입니다! 터치하여 해제하세요.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(pendingIntent) // 🔔 클릭 시 AlarmActivity 실행
+            .setOngoing(true)
             .build()
 
         notificationManager.notify(alarmData.requestCode, notification)

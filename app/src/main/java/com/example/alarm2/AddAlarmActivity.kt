@@ -87,7 +87,7 @@ class AddAlarmActivity : AppCompatActivity() {
             val missionType = missionSpinner.selectedItem.toString()
             val requestCode = System.currentTimeMillis().toInt()
 
-            val newAlarm = AlarmData(hour, minute, requestCode, missionType, repeatDays)
+            val newAlarm = AlarmData(hour, minute, requestCode, missionType, null ,repeatDays)
 
             saveAlarm(newAlarm)
 

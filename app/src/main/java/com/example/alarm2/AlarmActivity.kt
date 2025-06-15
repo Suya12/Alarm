@@ -1,5 +1,7 @@
 package com.example.alarm2
 
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.media.Ringtone
 import android.os.Bundle
@@ -17,7 +19,7 @@ import com.example.alarm2.model.AlarmData
 
 class AlarmActivity : AppCompatActivity() {
 
-    private var ringtone: Ringtone? = null
+//    private var ringtone: Ringtone? = null
     private lateinit var binding: ActivityAlarmBinding
     private lateinit var container: FrameLayout
     private var currentAnswerLabel: String? = null
@@ -52,9 +54,14 @@ class AlarmActivity : AppCompatActivity() {
             }
 
             // ✅ 알람 서비스 시작
-            val serviceIntent = Intent(this, AlarmService::class.java)
+            val serviceIntent = Intent(this, AlarmService::class.java).apply {
+                putExtra("requestCode", alarmData?.requestCode ?: 1)  // 기본값 1로 설정
+            }
             ContextCompat.startForegroundService(this, serviceIntent)
+
         }
+
+
     }
 
     private val cameraMissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -83,10 +90,16 @@ class AlarmActivity : AppCompatActivity() {
         container.removeAllViews()
         container.addView(binding.root)
 
-        binding.btnDismiss.setOnClickListener {
+        binding.stopAlarmBtn.setOnClickListener {
+            // 1) 서비스 종료
+            Log.d("AlarmActivity", "stopService 호출")
             val stopIntent = Intent(this, AlarmService::class.java)
             stopService(stopIntent)
 
+            // 2) 진행 중 알림 취소
+            cancelAlarmNotification()
+
+            // 3) 메인 화면 이동 및 액티비티 종료
             val intent = Intent(this, MainActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
@@ -118,6 +131,9 @@ class AlarmActivity : AppCompatActivity() {
                 val stopIntent = Intent(this, AlarmService::class.java)
                 stopService(stopIntent)
 
+                // 알림 취소
+                cancelAlarmNotification()
+
                 val intent = Intent(this, MainActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
@@ -146,8 +162,23 @@ class AlarmActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        ringtone?.stop()
+//    override fun onDestroy() {
+//        super.onDestroy()
+//        ringtone?.stop()
+//    }
+
+    private fun cancelAlarmNotification() {
+        alarmData?.let { alarm ->
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(alarm.requestCode)
+        }
+    }
+
+
+    override fun onBackPressed() {
+        super.onBackPressed()
+        // 아무것도 하지 않음 → 뒤로가기 막기
+        // 또는 토스트로 경고
+        Toast.makeText(this, "미션을 완료해야 알람을 끌 수 있어요!", Toast.LENGTH_SHORT).show()
     }
 }

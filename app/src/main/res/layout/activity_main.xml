@@ -4,38 +4,15 @@
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-  
-    <!-- 시간 선택기 -->
-    <TimePicker
-        android:id="@+id/timePicker"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:timePickerMode="spinner"
-        android:layout_marginBottom="24dp" />
 
-    <!-- 미션 선택 스피너 -->
-    <Spinner
-        android:id="@+id/missionSpinner"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp" />
-
-    <!-- 알람 설정 버튼 -->
-    <Button
-        android:id="@+id/setAlarmBtn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="알람 설정"
-        android:layout_marginBottom="24dp" />
-
-    <!-- 선택된 객체 라벨 표시용 텍스트 (카메라 미션용) -->
-    <TextView
-        android:id="@+id/tvSelectedObjectLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="선택된 객체 없음"
-        android:layout_marginBottom="12dp"
-        android:visibility="gone" />
+<!--    &lt;!&ndash; 선택된 객체 라벨 표시용 텍스트 (카메라 미션용) &ndash;&gt;-->
+<!--    <TextView-->
+<!--        android:id="@+id/tvSelectedObjectLabel"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:text="선택된 객체 없음"-->
+<!--        android:layout_marginBottom="12dp"-->
+<!--        android:visibility="gone" />-->
 
     <!-- 알람 목록 리스트 -->
 

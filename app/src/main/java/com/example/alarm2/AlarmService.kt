@@ -18,15 +18,21 @@ class AlarmService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createSilentNotification() // 아래에 정의된 함수
+        val requestCode = intent?.getIntExtra("requestCode", 1) ?: 1
 
-        startForeground(1, notification)
+        startForeground(requestCode, notification)
 
         // 벨소리 울리기
         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         ringtone = RingtoneManager.getRingtone(this, alarmUri)
+
+        // 혹시 이전에 재생중이면 멈추고 다시 재생하도록
+        if (ringtone?.isPlaying == true) {
+            ringtone?.stop()
+        }
         ringtone?.play()
 
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private fun createSilentNotification(): Notification {
@@ -60,6 +66,7 @@ class AlarmService : Service() {
 
 
     override fun onDestroy() {
+        Log.d("AlarmService", "onDestroy 호출, 알람 소리 중지")
         super.onDestroy()
         ringtone?.stop()
     }
