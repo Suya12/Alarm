@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#151926">
 
 <!--    &lt;!&ndash; 선택된 객체 라벨 표시용 텍스트 (카메라 미션용) &ndash;&gt;-->
 <!--    <TextView-->
@@ -16,15 +18,31 @@
 
     <!-- 알람 목록 리스트 -->
 
+    <!-- Alarms 제목 -->
+    <TextView
+        android:id="@+id/alarmsLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Alarms"
+        android:textSize="18sp"
+        android:textColor="#B0B8C8"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginTop="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="24dp" />
+
+    <!-- RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/alarmRecyclerView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="80dp"
+        app:layout_constraintTop_toBottomOf="@id/alarmsLabel"
+        app:layout_constraintBottom_toTopOf="@id/bottomNav"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:padding="16dp" />
+        android:padding="12dp" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/addAlarmButton"
@@ -36,5 +54,44 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_margin="24dp" />
+
+    <!-- 하단 네비게이션 바 -->
+    <LinearLayout
+        android:id="@+id/bottomNav"
+        android:layout_width="0dp"
+        android:layout_height="72dp"
+        android:orientation="horizontal"
+        android:background="#21273A"
+        android:gravity="center"
+        android:padding="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- 각각의 메뉴는 이렇게 반복 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <!--            <ImageView-->
+            <!--                android:layout_width="24dp"-->
+            <!--                android:layout_height="24dp"-->
+            <!--                android:src="@drawable/ic_alarm"-->
+            <!--                android:tint="@android:color/white" />-->
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Alarm"
+                android:textSize="12sp"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <!-- 나머지 메뉴들도 위와 같은 구조로 추가 -->
+        <!-- Sleep / Morning / Report / Setting 등 -->
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

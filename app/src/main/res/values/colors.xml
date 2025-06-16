@@ -4,4 +4,8 @@
     <color name="white">#FFFFFFFF</color>
     <color name="checkbox_selected_bg">#2196F3</color>
     <color name="checkbox_default_bg">#FFFFFF</color>
+    <color name="darkBackground">#2C2F38</color>
+    <color name="redAccent">#FF3D3D</color>
+    <color name="purple_500">#6200EE</color>
+    <color name="teal_200">#03DAC5</color>
 </resources>

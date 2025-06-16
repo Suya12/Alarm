@@ -1,145 +1,112 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
-
-    <TimePicker
-        android:id="@+id/timePicker"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:timePickerMode="spinner"
-        />
-
-    <Spinner
-        android:id="@+id/missionSpinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="반복 요일 선택"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="8dp"/>
+    android:background="#2A2F38">
 
     <LinearLayout
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id="@+id/daySelector"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp">
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:gravity="center_horizontal">
 
-        <CheckBox
-            android:id="@+id/checkMon"
+        <!-- 시간 선택 -->
+        <TimePicker
+            android:id="@+id/timePicker"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="월"
-            android:background="@drawable/day_checkbox"
-            android:textColor="@android:color/black"
-            android:button="@null"
-            android:padding="8dp"
-            android:layout_marginEnd="4dp"
-            android:textSize="20dp"
-            android:gravity="center"
-            />
+            android:theme="@style/TimePickerLightTheme"
+            android:timePickerMode="spinner" />
 
-
-        <CheckBox
-            android:id="@+id/checkTue"
+        <!-- 미션 선택 텍스트 -->
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="화"
-            android:background="@drawable/day_checkbox"
-            android:textColor="@android:color/black"
-            android:button="@null"
-            android:padding="8dp"
-            android:layout_marginEnd="4dp"
-            android:textSize="20dp"
-            android:gravity="center"
-            />
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:text="미션 선택"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
-        <CheckBox
-            android:id="@+id/checkWed"
+        <!-- 미션 선택 -->
+        <Spinner
+            android:id="@+id/missionSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#FFFFFF"
+            android:popupBackground="#FFFFFF"
+            android:textColor="#000000" />
+
+        <!-- 요일 선택 텍스트 -->
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="수"
-            android:background="@drawable/day_checkbox"
-            android:textColor="@android:color/black"
-            android:button="@null"
-            android:padding="8dp"
-            android:layout_marginEnd="4dp"
-            android:textSize="20dp"
-            android:gravity="center"
-            />
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:text="반복 요일 선택"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
-        <CheckBox
-            android:id="@+id/checkThu"
+        <!-- 요일 선택 체크박스 -->
+        <GridLayout
+            android:id="@+id/daySelector"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="목"
-            android:background="@drawable/day_checkbox"
-            android:textColor="@android:color/black"
-            android:button="@null"
-            android:padding="8dp"
-            android:layout_marginEnd="4dp"
-            android:textSize="20dp"
-            android:gravity="center"
-            />
+            android:columnCount="7"
+            android:rowCount="1"
+            android:alignmentMode="alignMargins"
+            android:useDefaultMargins="true"
+            android:layout_gravity="center">
 
-        <CheckBox
-            android:id="@+id/checkFri"
-            android:layout_width="wrap_content"
+            <CheckBox
+                android:id="@+id/checkMon"
+                style="@style/DayCheckBoxStyle"
+                android:text="월" />
+
+            <CheckBox
+                android:id="@+id/checkTue"
+                style="@style/DayCheckBoxStyle"
+                android:text="화" />
+
+            <CheckBox
+                android:id="@+id/checkWed"
+                style="@style/DayCheckBoxStyle"
+                android:text="수" />
+
+            <CheckBox
+                android:id="@+id/checkThu"
+                style="@style/DayCheckBoxStyle"
+                android:text="목" />
+
+            <CheckBox
+                android:id="@+id/checkFri"
+                style="@style/DayCheckBoxStyle"
+                android:text="금" />
+
+            <CheckBox
+                android:id="@+id/checkSat"
+                style="@style/DayCheckBoxStyle"
+                android:text="토" />
+
+            <CheckBox
+                android:id="@+id/checkSun"
+                style="@style/DayCheckBoxStyle"
+                android:text="일" />
+
+        </GridLayout>
+
+        <!-- 추가 버튼 -->
+        <Button
+            android:id="@+id/confirmBtn"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="금"
-            android:background="@drawable/day_checkbox"
-            android:textColor="@android:color/black"
-            android:button="@null"
-            android:padding="8dp"
-            android:layout_marginEnd="4dp"
-            android:textSize="20dp"
-            android:gravity="center"
-            />
-
-        <CheckBox
-            android:id="@+id/checkSat"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="토"
-            android:background="@drawable/day_checkbox"
-            android:textColor="@android:color/black"
-            android:button="@null"
-            android:padding="8dp"
-            android:layout_marginEnd="4dp"
-            android:textSize="20dp"
-            android:gravity="center"
-            />
-
-        <CheckBox
-            android:id="@+id/checkSun"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="일"
-            android:background="@drawable/day_checkbox"
-            android:textColor="@android:color/black"
-            android:button="@null"
-            android:padding="8dp"
-            android:layout_marginEnd="4dp"
-            android:textSize="20dp"
-            android:gravity="center"
-            />
-
+            android:layout_marginTop="24dp"
+            android:backgroundTint="#FF4D4D"
+            android:text="알람 추가"
+            android:textColor="#FFFFFF" />
     </LinearLayout>
-
-    <Button
-        android:id="@+id/confirmBtn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="알람 추가"
-        android:layout_marginTop="24dp"/>
-</LinearLayout>
+</ScrollView>
