@@ -123,6 +123,7 @@ class CameraMissionActivity : AppCompatActivity() {
                         val alarmData = intent.getSerializableExtra("alarmData") as? AlarmData
                         Log.d("AlarmActivity", "alarmData: $alarmData")
                         putExtra("alarmData", alarmData) // 다시 넘겨줘야 함
+                        putExtra("retry_camera", true)
                         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     startActivity(retryIntent)

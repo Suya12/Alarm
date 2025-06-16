@@ -15,11 +15,12 @@ import android.widget.CheckBox
 import android.widget.Spinner
 import android.widget.TimePicker
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.example.alarm2.AlarmReceiver
-import com.example.alarm2.R
 import com.example.alarm2.model.AlarmData
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.util.Calendar
 
 class AddAlarmActivity : AppCompatActivity() {
@@ -38,7 +39,25 @@ class AddAlarmActivity : AppCompatActivity() {
 
     private val missionTypes = listOf("button", "shaking", "math", "camera")
 
+    private var selectedLabel: String? = null
 
+    private val setupCameraLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data = result.data
+            selectedLabel = data?.getStringExtra("selectedLabel")
+
+            if (selectedLabel != null) {
+                Toast.makeText(this, "선택된 객체: $selectedLabel", Toast.LENGTH_SHORT).show()
+                finalizeAlarmCreation()
+            } else {
+                Toast.makeText(this, "객체 선택 실패", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(this, "카메라 미션이 취소되었습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,10 +79,10 @@ class AddAlarmActivity : AppCompatActivity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         missionSpinner.adapter = adapter
 
+        // 알림 권한 요청
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-
                 ActivityCompat.requestPermissions(
                     this,
                     arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
@@ -73,53 +92,76 @@ class AddAlarmActivity : AppCompatActivity() {
         }
 
         confirmBtn.setOnClickListener {
-            val repeatDays = mutableSetOf<String>()
-            if (checkMon.isChecked) repeatDays.add("MON")
-            if (checkTue.isChecked) repeatDays.add("TUE")
-            if (checkWed.isChecked) repeatDays.add("WED")
-            if (checkThu.isChecked) repeatDays.add("THU")
-            if (checkFri.isChecked) repeatDays.add("FRI")
-            if (checkSat.isChecked) repeatDays.add("SAT")
-            if (checkSun.isChecked) repeatDays.add("SUN")
-
-            val hour = timePicker.hour
-            val minute = timePicker.minute
             val missionType = missionSpinner.selectedItem.toString()
-            val requestCode = System.currentTimeMillis().toInt()
 
-            val newAlarm = AlarmData(hour, minute, requestCode, missionType, null ,repeatDays)
-
-            saveAlarm(newAlarm)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                if (alarmManager.canScheduleExactAlarms()) {
-                    setAlarm(newAlarm)
-                } else {
-                    Toast.makeText(this, "정확한 알람 권한이 필요합니다.", Toast.LENGTH_LONG).show()
-                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                    startActivity(intent)
-                }
+            if (missionType == "camera") {
+                val intent = Intent(this, CameraMissionActivity::class.java)
+                intent.putExtra("mode", "setup")
+                setupCameraLauncher.launch(intent)
             } else {
-                setAlarm(newAlarm)
+                finalizeAlarmCreation()
             }
-
-            val resultIntent = Intent().apply {
-                putExtra("hour", hour)
-                putExtra("minute", minute)
-                putExtra("missionType", missionType)
-                putExtra("requestCode", requestCode)
-            }
-            setResult(RESULT_OK, resultIntent)
-            finish()
         }
+    }
+
+    private fun finalizeAlarmCreation() {
+        val hour = timePicker.hour
+        val minute = timePicker.minute
+        val missionType = missionSpinner.selectedItem.toString()
+        val requestCode = System.currentTimeMillis().toInt()
+        val repeatDays = collectCheckedDays()
+
+        val newAlarm = AlarmData(
+            hour = hour,
+            minute = minute,
+            requestCode = requestCode,
+            missionType = missionType,
+            answerLabel = selectedLabel,
+            repeatDays = repeatDays
+        )
+
+        saveAlarm(newAlarm)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (alarmManager.canScheduleExactAlarms()) {
+                setAlarm(newAlarm)
+            } else {
+                Toast.makeText(this, "정확한 알람 권한이 필요합니다.", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                startActivity(intent)
+            }
+        } else {
+            setAlarm(newAlarm)
+        }
+
+        val resultIntent = Intent().apply {
+            putExtra("hour", hour)
+            putExtra("minute", minute)
+            putExtra("missionType", missionType)
+            putExtra("requestCode", requestCode)
+        }
+        setResult(RESULT_OK, resultIntent)
+        finish()
+    }
+
+    private fun collectCheckedDays(): MutableSet<String> {
+        val days = mutableSetOf<String>()
+        if (checkMon.isChecked) days.add("MON")
+        if (checkTue.isChecked) days.add("TUE")
+        if (checkWed.isChecked) days.add("WED")
+        if (checkThu.isChecked) days.add("THU")
+        if (checkFri.isChecked) days.add("FRI")
+        if (checkSat.isChecked) days.add("SAT")
+        if (checkSun.isChecked) days.add("SUN")
+        return days
     }
 
     private fun saveAlarm(alarm: AlarmData) {
         val sharedPref = getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-        val gson = com.google.gson.Gson()
+        val gson = Gson()
         val json = sharedPref.getString("alarms", null)
-        val type = object : com.google.gson.reflect.TypeToken<MutableList<AlarmData>>() {}.type
+        val type = object : TypeToken<MutableList<AlarmData>>() {}.type
         val alarmList: MutableList<AlarmData> = if (json != null) {
             gson.fromJson(json, type)
         } else {
@@ -135,7 +177,6 @@ class AddAlarmActivity : AppCompatActivity() {
 
     private fun setAlarm(alarm: AlarmData) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
         val intent = Intent(this, AlarmReceiver::class.java).apply {
             putExtra("alarmData", alarm)
         }
@@ -175,9 +216,9 @@ class AddAlarmActivity : AppCompatActivity() {
 
     fun restoreAlarms(context: Context) {
         val sharedPref = context.getSharedPreferences("AlarmPrefs", Context.MODE_PRIVATE)
-        val gson = com.google.gson.Gson()
+        val gson = Gson()
         val json = sharedPref.getString("alarms", null)
-        val type = object : com.google.gson.reflect.TypeToken<MutableList<AlarmData>>() {}.type
+        val type = object : TypeToken<MutableList<AlarmData>>() {}.type
         val alarmList: MutableList<AlarmData> = if (json != null) {
             gson.fromJson(json, type)
         } else {

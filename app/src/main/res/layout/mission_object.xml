@@ -40,13 +40,14 @@
 
     <Button
         android:id="@+id/btnGiveUp"
-        android:text="⛔ 알람 포기하기"
+        android:text="🎓 수학 미션으로 전환"
         android:visibility="gone"
-        android:textSize="14sp"
-        android:backgroundTint="#D32F2F"
+        android:textSize="16sp"
+        android:backgroundTint="#FFA000"
         android:textColor="@android:color/white"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:paddingHorizontal="20dp"
-        android:paddingVertical="8dp" />
+        android:paddingVertical="10dp" />
+
 </LinearLayout>
