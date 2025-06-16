@@ -3,7 +3,6 @@ package com.example.alarm2
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.media.Ringtone
 import android.os.Bundle
 import android.util.Log
 import android.widget.FrameLayout
@@ -159,6 +158,19 @@ class AlarmActivity : AppCompatActivity() {
             }
             startActivity(intent)
             finish()
+        }
+
+        val isRetry = intent.getBooleanExtra("retry_camera", false)
+        if (isRetry) {
+            binding.btnGiveUp.apply {
+                visibility = android.view.View.VISIBLE
+                setOnClickListener {
+                    Toast.makeText(this@AlarmActivity, "수학 미션으로 전환합니다.", Toast.LENGTH_SHORT).show()
+                    showMathMission()
+                }
+            }
+        } else {
+            binding.btnGiveUp.visibility = android.view.View.GONE
         }
     }
 
