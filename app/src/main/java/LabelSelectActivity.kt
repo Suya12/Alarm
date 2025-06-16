@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.alarm2.databinding.ActivityLabelSelectBinding
 
@@ -27,11 +28,17 @@ class LabelSelectActivity : AppCompatActivity() {
 
         binding.btnConfirmSelection.setOnClickListener {
             val selected = binding.spinnerLabels.selectedItem as? String
+            if (selected.isNullOrBlank()) {
+                Toast.makeText(this, "객체를 선택해주세요", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val resultIntent = Intent().apply {
                 putExtra("selectedLabel", selected)
             }
             setResult(Activity.RESULT_OK, resultIntent)
             finish()
         }
+
     }
 }
